@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BigQuery Release Notes Viewer</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar / Control Panel -->
+        <aside class="app-sidebar">
+            <div class="brand">
+                <div class="brand-logo">
+                    <i class="fa-solid fa-database logo-icon"></i>
+                    <div class="logo-glow"></div>
+                </div>
+                <div class="brand-text">
+                    <h1>BigQuery</h1>
+                    <span class="sub-brand">Release Notes Portal</span>
+                </div>
+            </div>
+
+            <!-- Stats Overview -->
+            <div class="stats-panel">
+                <h3><i class="fa-solid fa-chart-simple"></i> Analytics</h3>
+                <div class="stats-grid">
+                    <div class="stat-card" data-filter="all">
+                        <span class="stat-count" id="count-all">-</span>
+                        <span class="stat-label">Total Updates</span>
+                    </div>
+                    <div class="stat-card" data-filter="Feature">
+                        <span class="stat-count count-feature" id="count-feature">-</span>
+                        <span class="stat-label">Features</span>
+                    </div>
+                    <div class="stat-card" data-filter="Announcement">
+                        <span class="stat-count count-announcement" id="count-announcement">-</span>
+                        <span class="stat-label">Announcements</span>
+                    </div>
+                    <div class="stat-card" data-filter="Issue">
+                        <span class="stat-count count-issue" id="count-issue">-</span>
+                        <span class="stat-label">Issues</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tweet Composer Section (Persistent on Desktop) -->
+            <div class="composer-panel" id="tweet-composer">
+                <h3><i class="fa-brands fa-x-twitter"></i> Tweet Composer</h3>
+                <div class="composer-placeholder" id="composer-empty-state">
+                    <i class="fa-regular fa-paper-plane placeholder-icon"></i>
+                    <p>Select any release note card and click <strong>"Compose Tweet"</strong> to draft your post.</p>
+                </div>
+                <div class="composer-active hidden" id="composer-active-state">
+                    <div class="template-selector">
+                        <label for="tweet-template">Template style:</label>
+                        <select id="tweet-template">
+                            <option value="rocket">🚀 Action-oriented (Rocket)</option>
+                            <option value="loudspeaker">📢 Announcement (Loudspeaker)</option>
+                            <option value="alert">⚠️ Warning/Fix (Alert)</option>
+                            <option value="minimal">📄 Minimalist/Direct (Plain)</option>
+                        </select>
+                    </div>
+
+                    <div class="tweet-box-container">
+                        <textarea id="tweet-textarea" rows="6" placeholder="What's happening?"></textarea>
+                        <div class="character-counter-bar">
+                            <span id="char-count">0</span> / 280
+                            <div class="progress-ring-container">
+                                <svg class="progress-ring" width="24" height="24">
+                                    <circle class="progress-ring__circle-bg" stroke="#1f2937" stroke-width="2" fill="transparent" r="10" cx="12" cy="12"/>
+                                    <circle class="progress-ring__circle" id="progress-circle" stroke="#6366f1" stroke-width="2.5" fill="transparent" r="10" cx="12" cy="12"/>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="composer-actions">
+                        <button class="btn btn-secondary" id="btn-copy-tweet" title="Copy to clipboard">
+                            <i class="fa-regular fa-copy"></i> Copy
+                        </button>
+                        <button class="btn btn-primary" id="btn-share-tweet">
+                            <i class="fa-brands fa-x-twitter"></i> Post
+                        </button>
+                    </div>
+                    <div class="composer-note">
+                        <i class="fa-solid fa-circle-info"></i> Clicking "Post" opens X (Twitter) in a new tab with your pre-filled content.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer info -->
+            <div class="sidebar-footer">
+                <div class="api-status">
+                    <span class="status-dot green"></span>
+                    <span id="status-text">Connected to Feed</span>
+                </div>
+                <span class="version">v1.0.0</span>
+            </div>
+        </aside>
+
+        <!-- Main Feed Workspace -->
+        <main class="app-main">
+            <header class="main-header">
+                <div class="header-search">
+                    <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                    <input type="text" id="search-input" placeholder="Search release notes by keywords...">
+                </div>
+
+                <div class="header-actions">
+                    <button class="btn-refresh" id="btn-refresh" title="Refresh Release Notes">
+                        <i class="fa-solid fa-arrows-rotate" id="refresh-icon"></i>
+                        <span>Refresh</span>
+                    </button>
+                    
+                    <button class="theme-toggle" id="theme-toggle-btn" title="Toggle Light/Dark Mode">
+                        <i class="fa-solid fa-moon"></i>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Filters Bar -->
+            <div class="filters-bar">
+                <div class="filter-tabs" id="type-filters">
+                    <button class="filter-tab active" data-type="all">All</button>
+                    <button class="filter-tab" data-type="Feature">Features</button>
+                    <button class="filter-tab" data-type="Announcement">Announcements</button>
+                    <button class="filter-tab" data-type="Issue">Issues</button>
+                    <button class="filter-tab" data-type="Deprecation">Deprecations</button>
+                </div>
+
+                <div class="sort-controls">
+                    <label for="sort-select"><i class="fa-solid fa-sort"></i> Sort:</label>
+                    <select id="sort-select">
+                        <option value="newest">Newest First</option>
+                        <option value="oldest">Oldest First</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Feed Container -->
+            <div class="feed-container" id="feed-container">
+                <!-- Cards will be injected dynamically -->
+                
+                <!-- Loading State -->
+                <div class="feed-loading" id="feed-loading">
+                    <div class="spinner-container">
+                        <div class="glowing-spinner"></div>
+                        <i class="fa-solid fa-database loading-database-icon"></i>
+                    </div>
+                    <p>Fetching the latest BigQuery release notes...</p>
+                </div>
+
+                <!-- Empty State -->
+                <div class="feed-empty hidden" id="feed-empty">
+                    <i class="fa-regular fa-folder-open empty-icon"></i>
+                    <h2>No Updates Found</h2>
+                    <p>We couldn't find any release notes matching your search criteria. Try removing filters or changing your query.</p>
+                </div>
+
+                <!-- Error State -->
+                <div class="feed-error hidden" id="feed-error">
+                    <i class="fa-solid fa-triangle-exclamation error-icon"></i>
+                    <h2>Failed to Load</h2>
+                    <p id="error-message">Could not fetch release notes from the Google Cloud feed.</p>
+                    <button class="btn btn-primary btn-retry" id="btn-retry">
+                        <i class="fa-solid fa-rotate-right"></i> Try Again
+                    </button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Custom JavaScript -->
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
