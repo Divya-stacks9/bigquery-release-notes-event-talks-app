@@ -20,7 +20,7 @@ const btnRefresh = document.getElementById('btn-refresh');
 const refreshIcon = document.getElementById('refresh-icon');
 const searchInput = document.getElementById('search-input');
 const sortSelect = document.getElementById('sort-select');
-const themeToggleBtn = document.getElementById('theme-toggle-btn');
+const themeCheckbox = document.getElementById('checkbox-theme');
 const typeFiltersContainer = document.getElementById('type-filters');
 
 // Stats Elements
@@ -60,22 +60,27 @@ function setTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('theme', theme);
     
-    // Update theme toggle icon
-    const icon = themeToggleBtn.querySelector('i');
-    if (theme === 'light') {
-        icon.className = 'fa-solid fa-sun';
-    } else {
-        icon.className = 'fa-solid fa-moon';
+    // Update theme checkbox state
+    if (themeCheckbox) {
+        themeCheckbox.checked = (theme === 'light');
     }
 }
 
 // Event Listeners Setup
 function setupEventListeners() {
-    // Theme Toggle
-    themeToggleBtn.addEventListener('click', () => {
-        const newTheme = appState.theme === 'dark' ? 'light' : 'dark';
-        setTheme(newTheme);
-    });
+    // Theme Toggle Switch
+    if (themeCheckbox) {
+        themeCheckbox.addEventListener('change', () => {
+            const newTheme = themeCheckbox.checked ? 'light' : 'dark';
+            setTheme(newTheme);
+        });
+    }
+
+    // Export CSV Button
+    const btnExportCsv = document.getElementById('btn-export-csv');
+    if (btnExportCsv) {
+        btnExportCsv.addEventListener('click', exportToCSV);
+    }
 
     // Refresh buttons
     btnRefresh.addEventListener('click', fetchUpdates);
@@ -301,6 +306,9 @@ function renderFeed() {
                     <span class="card-date"><i class="fa-regular fa-calendar"></i> ${update.date}</span>
                 </div>
                 <div class="card-actions">
+                    <button class="btn-card-action btn-copy-card" title="Copy text to clipboard">
+                        <i class="fa-regular fa-copy"></i>
+                    </button>
                     <button class="btn-card-action btn-tweet-trigger" title="Compose Tweet for this update">
                         <i class="fa-brands fa-x-twitter"></i>
                     </button>
@@ -313,6 +321,22 @@ function renderFeed() {
                 ${update.html}
             </div>
         `;
+
+        // Event listener for copy card text
+        const btnCopy = card.querySelector('.btn-copy-card');
+        btnCopy.addEventListener('click', () => {
+            navigator.clipboard.writeText(update.text).then(() => {
+                btnCopy.classList.add('success');
+                btnCopy.innerHTML = '<i class="fa-solid fa-check"></i>';
+                
+                setTimeout(() => {
+                    btnCopy.classList.remove('success');
+                    btnCopy.innerHTML = '<i class="fa-regular fa-copy"></i>';
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy card text: ', err);
+            });
+        });
 
         // Event listener for tweet trigger on this card
         card.querySelector('.btn-tweet-trigger').addEventListener('click', () => {
@@ -451,4 +475,48 @@ function shareOnTwitter() {
     }
     const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
     window.open(twitterUrl, '_blank', 'noopener,noreferrer');
+}
+
+// Export Filtered/Visible Release Notes to CSV
+function exportToCSV() {
+    const data = appState.filteredUpdates;
+    if (!data || data.length === 0) {
+        alert("No release notes found to export. Check your search/filter parameters.");
+        return;
+    }
+    
+    // CSV Header row
+    const headers = ["Date", "Type", "Content (Plain Text)", "Source Link"];
+    
+    // Format rows
+    const rows = data.map(update => {
+        return [
+            update.date,
+            update.type,
+            update.text,
+            update.link
+        ].map(value => {
+            // Escape double-quotes and enclose in double-quotes
+            const escapedVal = (value || "").replace(/"/g, '""');
+            return `"${escapedVal}"`;
+        }).join(",");
+    });
+    
+    const csvContent = [headers.join(","), ...rows].join("\r\n");
+    
+    // Download File
+    try {
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const downloadLink = document.createElement("a");
+        downloadLink.setAttribute("href", url);
+        downloadLink.setAttribute("download", `bigquery_release_notes_${new Date().toISOString().slice(0,10)}.csv`);
+        downloadLink.style.visibility = "hidden";
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+    } catch (err) {
+        console.error("CSV Export error: ", err);
+        alert("Failed to export to CSV: " + err.message);
+    }
 }
